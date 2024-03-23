@@ -37,9 +37,11 @@ if config['model_name']=='XGBRegressor':
 if config['model_name']=='ExtraTreesRegressor':
     model = ExtraTreesRegressor
 
-del config['model_name']
+#del config['model_name']
+    
+params = config['model_parameters']
 
-model_in = model(**config)
+model_in = model(**params)
 additional_params = {'n_jobs' : -1}
 model_in.set_params(**additional_params)
 
