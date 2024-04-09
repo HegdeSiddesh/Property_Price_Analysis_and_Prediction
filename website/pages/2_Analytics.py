@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import altair as alt
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+import seaborn as sns
 import ast #To convert string repr of list to python list
 
 #Reference : https://blog.streamlit.io/crafting-a-dashboard-app-in-python-using-streamlit/
@@ -18,7 +19,7 @@ st.set_page_config(
 
 alt.themes.enable("dark")
 
-data = pd.read_csv("gurgaon_properties_with_latlong.csv")
+data = pd.read_csv("/home/siddesh/Desktop/Git_Repositories/Property_Price_Analysis_and_Prediction/website/gurgaon_properties_with_latlong.csv")
 
 #This col is just to center align title
 col_main = st.columns((10, 25,1), gap='small')
@@ -110,48 +111,135 @@ with col[2]:
 
 
 
-#TODO : Wordcloud
+#Wordcloud :
     #Collect all amneties per sector 
     #In streamlit, take sector name as option and display wordcloud for that sector
     #Keep extra option "All sectors" to display wordcloud over complete data
 
-amneties_data = pd.read_csv('/home/siddesh/Desktop/Git_Repositories/Property_Price_Analysis_and_Prediction/data/gurgaon_properties_cleaned_v1.csv')
+col_2 = st.columns((1, 25,1), gap='medium')
 
-#print(amneties_data['features'])
+with col_2[1]:
 
-all_amneties = []
-sector_amneties_mapper = {}
+    st.title ("Wordcloud of Amneties for Sectors")
 
-for sector in amneties_data['sector'].unique():
-    sector_amneties_mapper[sector] = []
+    amneties_data = pd.read_csv('/home/siddesh/Desktop/Git_Repositories/Property_Price_Analysis_and_Prediction/data/gurgaon_properties_cleaned_v1.csv')
 
-sector_amneties_mapper['All_Sectors'] = []
+    #print(amneties_data['features'])
 
-def collect_amneties_data(row):
-    #print(row['sector'])
-    #print(row['features'])
-    try:
-        feats = ast.literal_eval(row['features'])
-    except:
-        feats = []
-    sector_amneties_mapper[row['sector']].extend(feats)
-    sector_amneties_mapper['All_Sectors'].extend(feats)
+    all_amneties = []
+    sector_amneties_mapper = {}
 
-amneties_data.apply(collect_amneties_data, axis=1)
+    for sector in amneties_data['sector'].unique():
+        sector_amneties_mapper[sector] = []
 
-#for sector in amneties_data['sector'].unique():
-#    print(len(sector_amneties_mapper[sector]))
+    sector_amneties_mapper['All_Sectors'] = []
 
-get_amneties = st.selectbox('Choose sector to view amneties provided', sector_amneties_mapper.keys())
+    def collect_amneties_data(row):
+        #print(row['sector'])
+        #print(row['features'])
+        try:
+            feats = ast.literal_eval(row['features'])
+        except:
+            feats = []
+        sector_amneties_mapper[row['sector']].extend(feats)
+        sector_amneties_mapper['All_Sectors'].extend(feats)
 
-btn = st.button('View popular amneties!')
+    amneties_data.apply(collect_amneties_data, axis=1)
 
-if btn:
-    #st.ballons()
-    
-    wordcloud = WordCloud(max_font_size=70, max_words=100, background_color="white").generate(' '.join(sector_amneties_mapper[get_amneties]))
-    fig, ax = plt.subplots()
+    #for sector in amneties_data['sector'].unique():
+    #    print(len(sector_amneties_mapper[sector]))
+
+    get_amneties = st.selectbox('Choose sector to view amneties provided', sector_amneties_mapper.keys(), index = 0)
+
+    #btn = st.button('View popular amneties!')
+
+    #if btn:
+        #st.ballons()
+        
+    wordcloud = WordCloud(width=800, height=400, max_font_size=70, max_words=100, background_color="white").generate(' '.join(sector_amneties_mapper[get_amneties]))
+    fig, ax = plt.subplots(figsize=(50,25))
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis("off")
     #plt.show()
     st.pyplot(fig,use_container_width=True)
+
+st.title('Price analysisi based on other variables')
+
+col_3 = st.columns((10, 10,10), gap='medium')
+
+with col_3[0]:
+    data['bedRoom'] = data['bedRoom'].apply(pd.to_numeric)
+    data_bedRoom = data[data['bedRoom'] <=4 ]
+    
+    st.markdown('### Price movement by BHK box plot')
+    sectors_list = amneties_data['sector'].unique().tolist()
+    sectors_list = ['All Sectors'] + sectors_list
+    sector_name_bhk = st.selectbox('Choose sector to view price Boxplot for BHK', sectors_list, index = 0)
+
+    if sector_name_bhk=='All Sectors':
+        fig = px.box(data_bedRoom,  x = 'bedRoom', y = 'price')
+    else:
+        #st.dataframe(data_bedRoom[data_bedRoom['sector']==sector_name_bhk])
+        fig = px.box(data_bedRoom[data_bedRoom['sector']==sector_name_bhk], x = 'bedRoom', y = 'price')
+    st.plotly_chart(fig, use_container_width=True)
+
+with col_3[1]:
+    st.markdown('### Price movement by House/Flat Area')
+    sectors_list = amneties_data['sector'].unique().tolist()
+    sectors_list = ['All Sectors'] + sectors_list
+    price_vs_area_1 = st.selectbox('Choose sector to view price movement graph by area', sectors_list, index = 0)
+    price_vs_area_type = st.selectbox('Choose the type of property', ['Any', 'House', 'Flat'], index = 0)
+
+    if price_vs_area_1 == 'All Sectors':
+        if price_vs_area_type == 'Any':
+            fig = px.scatter(data, y = 'price', x = 'built_up_area')
+        else :
+            fig = px.scatter(data.loc[data['property_type']==price_vs_area_type.lower()], y = 'price', x = 'built_up_area')
+    
+    else :
+        if price_vs_area_type == 'Any':
+            fig = px.scatter(data.loc[data['sector']==price_vs_area_1], y = 'price', x = 'built_up_area')
+        else :
+            fig = px.scatter(data.loc[data['property_type']==price_vs_area_type.lower()].loc[data['sector']==price_vs_area_1], y = 'price', x = 'built_up_area')
+    
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+with col_3[2]:
+    st.markdown('### Sector wise distribution of price for House and Flat')
+    sectors_list = amneties_data['sector'].unique().tolist()
+    sectors_list = ['All Sectors'] + sectors_list
+    price_dist_sector = st.selectbox('Choose sector to view price distribution', sectors_list, index = 0)
+
+    if price_dist_sector == 'All Sectors':
+        fig3 = plt.figure(figsize = (15,10))
+        sns.distplot(data[data['property_type'] =='house']['price'], label='House')
+        sns.distplot(data[data['property_type'] =='flat']['price'], label='Flat')
+        plt.legend()
+    else:
+        fig3 = plt.figure(figsize = (15,10))
+        sns.distplot(data[(data['sector'] == price_dist_sector) & (data['property_type'] =='house')]['price'], label='House')
+        sns.distplot(data[(data['sector'] == price_dist_sector) & (data['property_type'] =='flat')]['price'], label='Flat')
+        plt.legend()
+
+    st.pyplot(fig3)
+
+col_4 = st.columns((1, 25,1), gap='medium')
+
+with col_4[1]:
+
+    data['bedRoom'] = data['bedRoom'].apply(pd.to_numeric).astype(int)
+    st.markdown('### Sector wise BHK distribution Pie chart')
+    sectors_list = amneties_data['sector'].unique().tolist()
+    sectors_list = ['All Sectors'] + sectors_list
+    pie_dist_sector = st.selectbox('Choose sector to view BHK Pie chart', sectors_list, index = 0)
+
+    if pie_dist_sector == 'All Sectors':
+        fig_5 = px.pie(data, names='bedRoom')
+    else:
+        fig_5 = px.pie(data[data['sector']==pie_dist_sector], names='bedRoom')
+    
+    st.plotly_chart(fig_5, use_container_width=True)
+
+
